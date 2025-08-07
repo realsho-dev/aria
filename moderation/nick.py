@@ -5,7 +5,7 @@ import random
 @commands.command(name='nick')
 @commands.has_permissions(manage_nicknames=True)
 async def nick(ctx, who=None, *, nickname=None):
-    if not who or not nickname:
+    if not who:
         messages = [
             "gimme who and what nickname, can’t just work with blanks.",
             "nick command needs both user and new nickname, try again.",
@@ -69,14 +69,24 @@ async def nick(ctx, who=None, *, nickname=None):
         return
 
     try:
-        await target.edit(nick=nickname)
-        nick_messages = [
-            f"done. **{target.display_name}** is now rocking a new name: **{nickname}**.",
-            f"fresh identity unlocked for {target.mention}: **{nickname}**.",
-            f"nickname switch: {target.mention} → **{nickname}**.",
-            f"new vibes? {target.name} is now **{nickname}** here.",
-        ]
-        await ctx.send(random.choice(nick_messages))
+        if nickname is None or not nickname.strip():
+            await target.edit(nick=None)
+            reset_messages = [
+                f"nickname for {target.mention} reset to default: **{target.name}**.",
+                f"back to basics—{target.mention} is now **{target.name}**.",
+                f"nickname wiped, back to OG name: **{target.name}**.",
+                f"reset! {target.name} runs with their original name now.",
+            ]
+            await ctx.send(random.choice(reset_messages))
+        else:
+            await target.edit(nick=nickname)
+            nick_messages = [
+                f"done. **{target.display_name}** is now rocking a new name: **{nickname}**.",
+                f"fresh identity unlocked for {target.mention}: **{nickname}**.",
+                f"nickname switch: {target.mention} → **{nickname}**.",
+                f"new vibes? {target.name} is now **{nickname}** here.",
+            ]
+            await ctx.send(random.choice(nick_messages))
     except discord.Forbidden:
         messages = [
             "no powers to set that nickname, bot’s role too low or lacks permission.",
