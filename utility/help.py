@@ -1,3 +1,5 @@
+from discord.ext import commands
+
 @commands.command(name="help")
 async def help_command(ctx):
     msg = (
