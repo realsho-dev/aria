@@ -1,8 +1,14 @@
+# main.py
+
 import os
 import asyncio
 from dotenv import load_dotenv
 import discord
 from discord.ext import commands
+
+# Healthcheck
+import healthcheck
+healthcheck.start()
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -16,7 +22,7 @@ intents.message_content = True
 bot = commands.Bot(command_prefix=PREFIX, intents=intents)
 
 # REMOVE DEFAULT HELP
-bot.remove_command('help')   # <-- This is crucial!
+bot.remove_command('help')
 
 async def load_cogs():
     for folder in ["moderation", "utility", "ai", "bot"]:
