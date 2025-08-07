@@ -8,11 +8,15 @@ load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 PREFIX = os.getenv('BOT_PREFIX', '.')
 TOGETHER_AI_API = os.getenv('TOGETHER_AI_API')
+
 intents = discord.Intents.default()
-intents.members = True    # <-- needed to fetch members by ID
+intents.members = True    # needed to fetch members by ID
 intents.message_content = True
+
 bot = commands.Bot(command_prefix=PREFIX, intents=intents)
 
+# REMOVE DEFAULT HELP
+bot.remove_command('help')   # <-- This is crucial!
 
 async def load_cogs():
     for folder in ["moderation", "utility", "ai", "bot"]:
