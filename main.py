@@ -13,7 +13,7 @@ healthcheck.start()
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 PREFIX = os.getenv('BOT_PREFIX', '.')
-TOGETHER_AI_API = os.getenv('TOGETHER_AI_API')
+TOGETHER_API_KEY = os.getenv('TOGETHER_API_KEY')
 
 intents = discord.Intents.default()
 intents.members = True    # needed to fetch members by ID
