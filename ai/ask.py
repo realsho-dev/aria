@@ -2,11 +2,11 @@ import os
 import textwrap
 from dotenv import load_dotenv
 from together import Together
+from discord.ext import commands
 
 load_dotenv()
 client = Together(api_key=os.getenv("TOGETHER_API_KEY"))
 BOT_PREFIX = '-'
-# MAX_HISTORY removed since no history
 
 def format_system_prompt():
     return textwrap.dedent(f"""
@@ -41,12 +41,12 @@ def get_ai_response(prompt):
         print(f"AI Error: {e}")
         return "oops something broke lol"
 
-# Example command handler function for -ask
+# Register as a Discord command
+@commands.command(name="ask")
 async def handle_ask_command(ctx, *, prompt: str):
-    # Just get AI reply on the single prompt without history
     reply = get_ai_response(prompt)
+    await ctx.send(reply)
 
-    # Send the reply
-    sent_message = await ctx.send(reply)
-
-    # No history update needed now
+# Required for Discord.py extension loading
+async def setup(bot):
+    bot.add_command(handle_ask_command)
