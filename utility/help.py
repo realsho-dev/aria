@@ -1,6 +1,3 @@
-
-<<<<<<< HEAD
-=======
 @commands.command(name="help")
 async def help_command(ctx):
     msg = (
@@ -13,4 +10,3 @@ async def help_command(ctx):
 
 async def setup(bot):
     bot.add_command(help_command)
->>>>>>> origin/main
