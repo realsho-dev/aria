@@ -1,2 +1,2 @@
-healthcheck: python fake_health_check.py
+# Procfile
 web: python main.py
