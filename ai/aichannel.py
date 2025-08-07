@@ -2,6 +2,7 @@ import os
 import textwrap
 from dotenv import load_dotenv
 from together import Together
+from discord.ext import commands
 
 load_dotenv()
 client = Together(api_key=os.getenv("TOGETHER_API_KEY"))
@@ -38,19 +39,29 @@ def get_ai_response(prompt):
         print(f"AI Error: {e}")
         return "oops something broke lol"
 
-async def on_message(message):
-    # Only respond if message is in 'aichannel' channel (case-insensitive)
-    if message.channel.name.lower() != "aichannel":
-        return
+# Cog class so Discord.py can load it
+class AIChannelCog(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
 
-    # Ignore messages from bots
-    if message.author.bot:
-        return
+    @commands.Cog.listener()
+    async def on_message(self, message):
+        # Only respond if message is in 'aichannel' channel (case-insensitive)
+        if message.channel.name.lower() != "aichannel":
+            return
 
-    # Ignore messages starting with command prefix
-    if message.content.startswith(BOT_PREFIX):
-        return
+        # Ignore messages from bots
+        if message.author.bot:
+            return
 
-    # Generate AI reply and send
-    reply = get_ai_response(message.content)
-    await message.channel.send(reply)
+        # Ignore messages starting with command prefix
+        if message.content.startswith(BOT_PREFIX):
+            return
+
+        # Generate AI reply and send
+        reply = get_ai_response(message.content)
+        await message.channel.send(reply)
+
+# Required setup for extension loading
+async def setup(bot):
+    await bot.add_cog(AIChannelCog(bot))
