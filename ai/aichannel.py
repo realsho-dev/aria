@@ -43,10 +43,10 @@ class AIChannelCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.enabled_channels = set()
+        self.message_context = {}  # bot_message_id -> original prompt
 
     @commands.command(name="aichannel")
     async def aichannel(self, ctx, *, channel_id=None):
-        # Enable/disable AI in a channel
         channel = None
         if channel_id:
             try:
@@ -65,17 +65,28 @@ class AIChannelCog(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message):
-        # Only reply if channel is enabled and not a bot
         if message.channel.id not in self.enabled_channels:
             return
         if message.author.bot:
             return
         if message.content.startswith(BOT_PREFIX):
-            return  # ignore .commands
+            return
 
-        # Get AI response and send
-        reply = get_ai_response(message.content)
-        await message.channel.send(reply)
+        # Check if replying to AI's message for context
+        if message.reference and message.reference.message_id:
+            replied_msg_id = message.reference.message_id
+            if replied_msg_id in self.message_context:
+                original_prompt = self.message_context[replied_msg_id]
+                combined_prompt = f"{original_prompt}\n\nuser reply: {message.content}"
+                reply_text = get_ai_response(combined_prompt)
+                bot_message = await message.channel.send(reply_text)
+                self.message_context[bot_message.id] = original_prompt
+                return
+
+        # Normal AI response (new conversation)
+        reply_text = get_ai_response(message.content)
+        bot_message = await message.channel.send(reply_text)
+        self.message_context[bot_message.id] = message.content
 
 async def setup(bot):
     await bot.add_cog(AIChannelCog(bot))
