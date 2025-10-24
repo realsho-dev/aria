@@ -18,23 +18,43 @@ def format_system_prompt():
 
         Response Rules:
         1. Be very short but helpful (10-15 words with lower case only, and informal tone)
-        2. Do not use past chat, focus only on current prompt
+        2. Use conversation history to maintain context and continuity
         3. Reply naturally with informal style
     """).strip()
 
-def get_ai_response(prompt):
+def count_tokens_estimate(messages):
+    """rough token estimation: ~4 chars = 1 token"""
+    total = sum(len(msg["content"]) for msg in messages)
+    return total // 4
+
+def get_ai_response_with_history(user_id, prompt, cog_instance):
     try:
         system_prompt = format_system_prompt()
+        
+        # build message list: system + history + current
+        messages = [{"role": "system", "content": system_prompt}]
+        
+        # add stored history
+        history = cog_instance.get_history(user_id)
+        messages.extend(history)
+        
+        # add current message
+        messages.append({"role": "user", "content": prompt})
+        
         response = client.chat.completions.create(
             model="meta-llama/Llama-3-70b-chat-hf",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": prompt}
-            ],
+            messages=messages,
             temperature=0.7,
             max_tokens=100,
         )
-        return response.choices[0].message.content.strip()
+        
+        ai_reply = response.choices[0].message.content.strip()
+        
+        # save to history
+        cog_instance.add_to_history(user_id, "user", prompt)
+        cog_instance.add_to_history(user_id, "assistant", ai_reply)
+        
+        return ai_reply
     except Exception as e:
         print(f"AI Error: {e}")
         return "oops something broke lol"
@@ -43,10 +63,35 @@ class AIChannelCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.enabled_channels = set()
-        self.message_context = {}  # bot_message_id -> original prompt
+        self.chat_history = {}  # user_id -> list of messages
+        self.max_tokens = 2000  # token limit per user
+        self.max_messages = 20  # fallback message limit
+
+    def add_to_history(self, user_id, role, content):
+        """add message to history with token management"""
+        if user_id not in self.chat_history:
+            self.chat_history[user_id] = []
+        
+        self.chat_history[user_id].append({"role": role, "content": content})
+        
+        # remove oldest messages if exceeding token limit
+        while count_tokens_estimate(self.chat_history[user_id]) > self.max_tokens:
+            if len(self.chat_history[user_id]) > 1:
+                self.chat_history[user_id].pop(0)
+            else:
+                break
+        
+        # also enforce message count limit
+        if len(self.chat_history[user_id]) > self.max_messages:
+            self.chat_history[user_id] = self.chat_history[user_id][-self.max_messages:]
+    
+    def get_history(self, user_id):
+        """get conversation history for user"""
+        return self.chat_history.get(user_id, [])
 
     @commands.command(name="aichannel")
     async def aichannel(self, ctx, *, channel_id=None):
+        """toggle AI chat in a channel"""
         channel = None
         if channel_id:
             try:
@@ -63,30 +108,48 @@ class AIChannelCog(commands.Cog):
             self.enabled_channels.add(channel.id)
             await ctx.send(f"aichat enabled in {channel.mention}")
 
+    @commands.command(name="clearchat")
+    async def clearchat(self, ctx):
+        """clear your conversation history"""
+        user_id = ctx.author.id
+        if user_id in self.chat_history:
+            del self.chat_history[user_id]
+            await ctx.send("your chat history cleared!")
+        else:
+            await ctx.send("no history found")
+
+    @commands.command(name="chatinfo")
+    async def chatinfo(self, ctx):
+        """show your chat history stats"""
+        user_id = ctx.author.id
+        if user_id in self.chat_history:
+            msg_count = len(self.chat_history[user_id])
+            token_count = count_tokens_estimate(self.chat_history[user_id])
+            await ctx.send(f"messages stored: {msg_count} | estimated tokens: {token_count}")
+        else:
+            await ctx.send("no history found")
+
     @commands.Cog.listener()
     async def on_message(self, message):
+        # ignore if not in enabled channel
         if message.channel.id not in self.enabled_channels:
             return
+        
+        # ignore bot messages
         if message.author.bot:
             return
+        
+        # ignore commands
         if message.content.startswith(BOT_PREFIX):
             return
 
-        # Check if replying to AI's message for context
-        if message.reference and message.reference.message_id:
-            replied_msg_id = message.reference.message_id
-            if replied_msg_id in self.message_context:
-                original_prompt = self.message_context[replied_msg_id]
-                combined_prompt = f"{original_prompt}\n\nuser reply: {message.content}"
-                reply_text = get_ai_response(combined_prompt)
-                bot_message = await message.channel.send(reply_text)
-                self.message_context[bot_message.id] = original_prompt
-                return
-
-        # Normal AI response (new conversation)
-        reply_text = get_ai_response(message.content)
-        bot_message = await message.channel.send(reply_text)
-        self.message_context[bot_message.id] = message.content
+        # get AI response with full history
+        reply_text = get_ai_response_with_history(
+            message.author.id, 
+            message.content, 
+            self
+        )
+        await message.channel.send(reply_text)
 
 async def setup(bot):
     await bot.add_cog(AIChannelCog(bot))
