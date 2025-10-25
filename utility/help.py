@@ -2,12 +2,25 @@ from discord.ext import commands
 
 @commands.command(name="help")
 async def help_command(ctx):
+    """shows all available commands organized by category"""
+    
     msg = (
-        "**Available commands:**\n"
-        "**ban**, **clearwarns**, **help**, **hide**, **kick**, **lock**, **nuke**,\n"
-        "**purge**, **role**, **si**, **steal**, **timeout**, **ui**, **unhide**, **unlock**,\n"
-        "**warn**, **warnings**, **nick**, **aichannel**, **ask**"
+        "**aria command list**\n\n"
+        
+        "**moderation:**\n"
+        "`ban`, `kick`, `timeout`, `warn`, `clearwarns`, `warnings`,\n"
+        "`purge`, `lock`, `unlock`, `hide`, `unhide`, `nuke`\n\n"
+        
+        "**utility:**\n"
+        "`role`, `nick`, `si`, `ui`, `steal`\n\n"
+        
+        "**ai features:**\n"
+        "`ask`, `aichannel`, `chatinfo`, `clearchat`, `reset`\n"
+        "*also responds to @mentions anywhere*\n\n"
+        
+        "prefix: `.` | developed by ayanokouji"
     )
+    
     await ctx.send(msg)
 
 async def setup(bot):
