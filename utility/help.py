@@ -12,7 +12,7 @@ async def help_command(ctx):
         "`purge`, `lock`, `unlock`, `hide`, `unhide`, `nuke`\n\n"
         
         "**utility:**\n"
-        "`role`, `nick`, `si`, `ui`, `steal`\n\n"
+        "`role`, `nick`, `si`, `ui`, `steal`, `av`, `banner`\n\n"
         
         "**ai features:**\n"
         "`ask`, `aichannel`, `chatinfo`, `clearchat`, `reset`\n"
