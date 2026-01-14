@@ -1,18 +1,13 @@
 import os
 import textwrap
 from dotenv import load_dotenv
-from groq import Groq  # Changed from together
+from groq import Groq
 from discord.ext import commands
 import discord
 
-
-load_dotenv()
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))  # Changed to GROQ_API_KEY
 BOT_PREFIX = '.'
 
-
-# ==================== UPDATED ARIA PROMPT ====================
-
+load_dotenv()  # Keep for local dev
 
 def format_system_prompt(): 
     return textwrap.dedent(""" 
@@ -27,34 +22,23 @@ def format_system_prompt():
     3. Reply naturally with informal style 
     """).strip()
 
-
-
-# ==================== TOKEN ESTIMATION ====================
-
-
 def count_tokens_estimate(messages):
     total = sum(len(msg["content"]) for msg in messages)
     return total // 4
 
-
-
-# ==================== MAIN COG ====================
-
-
 class AICommandsCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.client = Groq(api_key=os.getenv("GROQ_API_KEY"))  # MOVED HERE - fixes Heroku crash
         self.enabled_channels = set()
         self.chat_history = {}
         self.max_tokens = 2000
         self.max_messages = 20
 
-
     def add_to_history(self, user_id, role, content):
         if user_id not in self.chat_history:
             self.chat_history[user_id] = []
         self.chat_history[user_id].append({"role": role, "content": content})
-
 
         while count_tokens_estimate(self.chat_history[user_id]) > self.max_tokens:
             if len(self.chat_history[user_id]) > 1:
@@ -62,14 +46,11 @@ class AICommandsCog(commands.Cog):
             else:
                 break
 
-
         if len(self.chat_history[user_id]) > self.max_messages:
             self.chat_history[user_id] = self.chat_history[user_id][-self.max_messages:]
 
-
     def get_history(self, user_id):
         return self.chat_history.get(user_id, [])
-
 
     def get_ai_response_with_history(self, user_id, prompt):
         try:
@@ -79,31 +60,23 @@ class AICommandsCog(commands.Cog):
             messages.extend(history)
             messages.append({"role": "user", "content": prompt})
 
-
-            response = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",  # Free Groq model (was Llama-3-70b-chat-hf)
+            response = self.client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
                 messages=messages,
                 temperature=0.6,
                 max_tokens=220,
                 top_p=0.9,
             )
 
-
             ai_reply = response.choices[0].message.content.strip()
-
 
             self.add_to_history(user_id, "user", prompt)
             self.add_to_history(user_id, "assistant", ai_reply)
             return ai_reply
 
-
         except Exception as e:
             print(f"AI Error: {e}")
             return "uhh something glitched lol..."
-
-
-    # ==================== ASK COMMAND ====================
-
 
     @commands.command(name="ask")
     async def handle_ask_command(self, ctx, *, prompt: str):
@@ -115,9 +88,7 @@ class AICommandsCog(commands.Cog):
             except Exception as e:
                 print(f"Couldn't fetch replied message: {e}")
 
-
         full_prompt = (extra_context + prompt) if extra_context else prompt
-
 
         reply = await self.bot.loop.run_in_executor(
             None,
@@ -126,10 +97,6 @@ class AICommandsCog(commands.Cog):
             full_prompt,
         )
         await ctx.send(reply)
-
-
-    # ==================== AI CHANNEL FEATURE ====================
-
 
     @commands.command(name="aichannel")
     @commands.has_permissions(manage_channels=True)
@@ -143,14 +110,12 @@ class AICommandsCog(commands.Cog):
         if not channel:
             channel = ctx.channel
 
-
         if channel.id in self.enabled_channels:
             self.enabled_channels.remove(channel.id)
             await ctx.send(f"aichat disabled in {channel.mention}")
         else:
             self.enabled_channels.add(channel.id)
             await ctx.send(f"aichat enabled in {channel.mention}")
-
 
     @commands.Cog.listener()
     async def on_message(self, message):
@@ -159,20 +124,16 @@ class AICommandsCog(commands.Cog):
         if message.content.startswith(BOT_PREFIX):
             return
 
-
         bot_mentioned = self.bot.user in message.mentions
         in_enabled_channel = message.channel.id in self.enabled_channels
 
-
         if not (bot_mentioned or in_enabled_channel):
             return
-
 
         prompt = message.content
         if bot_mentioned:
             prompt = message.content.replace(f'<@{self.bot.user.id}>', '').strip()
             prompt = prompt.replace(f'<@!{self.bot.user.id}>', '').strip()
-
 
         reply_text = await self.bot.loop.run_in_executor(
             None,
@@ -181,15 +142,10 @@ class AICommandsCog(commands.Cog):
             prompt,
         )
 
-
         if bot_mentioned:
             await message.reply(reply_text, mention_author=False)
         else:
             await message.channel.send(reply_text)
-
-
-    # ==================== HISTORY MANAGEMENT ====================
-
 
     @commands.command(name="clearchat")
     async def clearchat(self, ctx):
@@ -200,7 +156,6 @@ class AICommandsCog(commands.Cog):
         else:
             await ctx.send("no history found...")
 
-
     @commands.command(name="chatinfo")
     async def chatinfo(self, ctx):
         user_id = ctx.author.id
@@ -210,7 +165,6 @@ class AICommandsCog(commands.Cog):
             await ctx.send(f"msgs: {msg_count} | est tokens: {token_count}")
         else:
             await ctx.send("no history found...")
-
 
     @commands.command(name="reset")
     @commands.has_permissions(administrator=True)
@@ -225,17 +179,13 @@ class AICommandsCog(commands.Cog):
             f"• disabled {total_channels} ai channels"
         )
 
-
     @commands.command(name="clearask")
     async def clear_ask_history(self, ctx):
         await self.clearchat(ctx)
 
-
     @commands.command(name="askinfo")
     async def ask_info(self, ctx):
         await self.chatinfo(ctx)
-
-
 
 async def setup(bot):
     await bot.add_cog(AICommandsCog(bot))
